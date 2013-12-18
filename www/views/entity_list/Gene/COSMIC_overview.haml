@@ -1,0 +1,74 @@
+- action_card = ActionCard.new
+ 
+= action_card_render action_card do
+  - damage_db = COSMIC.gene_damage_analysis.tsv :persist => true
+
+  - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID",
+    :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Recurrent %", "Hotspot statistic", "Avg. damage score", "Bg. Avg. damage score", "Damage t-test p-value"], :type => :list, :namespace => list.organism), 
+    :type => :list, :cast => :to_f)
+
+  - list.sort_by{|gene| gene.name}.ensembl.compact.each do |gene|
+    - log gene.name
+    - next if gene.transcripts.nil? or gene.transcripts.empty?
+    - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last
+
+    - protein_mutations = COSMIC.knowledge_base.subset(:gene_principal_isoform_mutations, "Gene" => [gene], "Mutated Isoform" => :all).target_entity
+    - protein_mutations ||= []
+    - protein_mutations.select!{|p| p =~ /ENSP.*:([A-Z*])\d+([A-Z*])/ and $1 != $2}
+
+    - if protein_mutations and protein_mutations.any?
+      - positions = protein_mutations.position.sort
+      - distances = positions[1..-1].zip(positions).collect{|p1,p2| p1 - p2}
+      - mean_mut_distance = Misc.mean distances
+      - protein_size = protein.sequence.length
+      - hotspot = distances.inject(0){|acc,e|  acc += 1 if e == 0; acc}.to_f / distances.length
+      - unif = (0..1000).to_a.collect{ rand }
+      - scaled_positions = positions.collect{|p| p.to_f / protein_size}
+      - hotspot_stat = RSRuby.instance.ks_test(scaled_positions, unif)["p.value"]
+
+    - else
+      - protein_size = Misc.max(gene.transcripts.sequence.collect{|s| s.nil? ? 0 : s.length}) / 3 if gene.transcripts and gene.transcripts.any?
+      - protein_size = gene.sequence.length.to_f / 3 if protein_size.nil? or protein_size == 0
+      - mean_mut_distance = nil
+      - hotspot = 0
+      - hotspot_stat = 1
+
+    - damage_avg, bg_damage_avg, damage_pvalue = damage_db[gene].values_at "Avg. damage score", "Bg. Avg. damage score", "T-test p-value"
+    - tsv[gene] = [protein_mutations.length, "%4.g" % (protein_mutations.length.to_f / protein_size ), "%.3g" % (mean_mut_distance || -1), "%.3g" % (hotspot * 100), hotspot_stat, damage_avg, bg_damage_avg, damage_pvalue]
+
+  - header "COSMIC mutations", "NumericValue"
+  - header "Mutation ratio", "NumericValue"
+  - header "Mutations / Protein size", "NumericValue"
+  - header "Mean mut. distance", "NumericValue"
+  - header "Recurrent %", "NumericValue"
+  - header "Hotspot statistic", "NumericValue"
+  - header "Avg. damage score", "NumericValue"
+  - header "Avg. background damage score", "NumericValue"
+  - header "Damage score t-test p-value", "NumericValue"
+  = table :table_id => "Details for #{ list_id }", :page => '1~-COSMIC mutations' do
+    - tsv
+
+  - min = 1.0/1_000_000
+  - tsv = tsv.add_field "Log10(damage p-value)" do |k,v|
+    - pvalue = v["Damage score t-test p-value"] 
+    - pvalue = min if pvalue < min
+    - if pvalue == 1
+      - 0
+    - else
+      - -Math.log10(pvalue)
+
+  - tsv = tsv.add_field "Log10(hotspot p-value)" do |k,v|
+    - pvalue = v["Hotspot statistic"] 
+    - pvalue = min if pvalue < min
+    - if pvalue == 1
+      - 0
+    - else
+      - -Math.log10(pvalue)
+
+  - puts tsv
+  = tool :figure, :plot => :scatter, :data => tsv, 
+    :size => "Mutations / Protein size", :y => "Log10(hotspot p-value)", :x => "Log10(damage p-value)", 
+    :width => "100%", :height => '100%',
+    :title => "Gene COSMIC overview",
+    :caption => "(Y) -Log10(pvalue) of non-uniformity ~ (X) -Log10(p-value) of damage bias; (Size) Mutations by protein AA"
+

@@ -1,0 +1,17 @@
+COSMIC=/$PWD filter="*"{
+ workflow.rb
+ lib=lib{
+  sinatra.rb
+ }
+ www=www{
+  views=views{
+   entity=entity{
+   }
+   entity_list=entity_list{
+    Gene=Gene{
+     COSMIC_overview.haml
+    }
+   }
+  }
+ }
+}
