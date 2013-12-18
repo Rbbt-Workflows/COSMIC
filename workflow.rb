@@ -29,7 +29,7 @@ module COSMIC
 
     tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", 
                     :fields => ["Avg. damage score", "Bg. Avg. damage score", "T-test p-value"], 
-                    :type => :list, :cast => :to_f, :namespace => COMSIC.organism)
+                    :type => :list, :cast => :to_f, :namespace => COSMIC.organism)
 
     damage_fields = DbNSFP.database.fields.select{|f| f =~ /converted/ }
     db = COSMIC.knowledge_base.get_database(:gene_principal_isoform_mutations)
