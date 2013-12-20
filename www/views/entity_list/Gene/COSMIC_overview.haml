@@ -4,8 +4,8 @@
   - damage_db = COSMIC.gene_damage_analysis.tsv :persist => true
 
   - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID",
-    :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Recurrent %", "Hotspot statistic", "Avg. damage score", "Bg. Avg. damage score", "Damage t-test p-value"], :type => :list, :namespace => list.organism), 
-    :type => :list, :cast => :to_f)
+    :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Recurrent %", "Hotspot statistic", "Avg. damage score", "Bg. Avg. damage score", "Damage t-test p-value"], 
+    :type => :list, :cast => :to_f,:namespace => list.organism, )
 
   - list.sort_by{|gene| gene.name}.ensembl.compact.each do |gene|
     - log gene.name
@@ -33,7 +33,7 @@
       - hotspot = 0
       - hotspot_stat = 1
 
-    - damage_avg, bg_damage_avg, damage_pvalue = damage_db[gene].values_at "Avg. damage score", "Bg. Avg. damage score", "T-test p-value"
+    - damage_avg, bg_damage_avg, damage_pvalue = damage_db[gene] ? damage_db[gene].values_at("Avg. damage score", "Bg. Avg. damage score", "T-test p-value") : [0,0,0]
     - tsv[gene] = [protein_mutations.length, "%4.g" % (protein_mutations.length.to_f / protein_size ), "%.3g" % (mean_mut_distance || -1), "%.3g" % (hotspot * 100), hotspot_stat, damage_avg, bg_damage_avg, damage_pvalue]
 
   - header "COSMIC mutations", "NumericValue"
@@ -50,7 +50,7 @@
 
   - min = 1.0/1_000_000
   - tsv = tsv.add_field "Log10(damage p-value)" do |k,v|
-    - pvalue = v["Damage score t-test p-value"] 
+    - pvalue = v["Damage t-test p-value"] 
     - pvalue = min if pvalue < min
     - if pvalue == 1
       - 0
@@ -68,7 +68,7 @@
   - puts tsv
   = tool :figure, :plot => :scatter, :data => tsv, 
     :size => "Mutations / Protein size", :y => "Log10(hotspot p-value)", :x => "Log10(damage p-value)", 
-    :width => "100%", :height => '100%',
+    :width => "100%", :height => '600px',
     :title => "Gene COSMIC overview",
     :caption => "(Y) -Log10(pvalue) of non-uniformity ~ (X) -Log10(p-value) of damage bias; (Size) Mutations by protein AA"
 
