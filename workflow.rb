@@ -43,7 +43,7 @@ module COSMIC
         all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
         damage_scores = dbNSFP_tsv.select(:key => mis).collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
 
-        if damage_scores.length < 3
+        if damage_scores.length < 3 or all_damage_scores.uniq.length < 3
           damage_score_pvalue = 1
         else
           damage_score_pvalue = RSRuby.instance.t_test(damage_scores, all_damage_scores,"greater")["p.value"]
