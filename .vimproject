@@ -1,7 +1,21 @@
 COSMIC=/$PWD filter="*"{
  workflow.rb
  lib=lib{
-  sinatra.rb
+  rbbt=rbbt{
+   sources=sources{
+    COSMIC.rb
+    COSMIC=COSMIC{
+     indices.rb
+     entity.rb
+     knowledge_base.rb
+    }
+   }
+  }
+ }
+ share=share{
+  rbbt_commands=rbbt_commands{
+   bootstrap
+  }
  }
  www=www{
   views=views{
