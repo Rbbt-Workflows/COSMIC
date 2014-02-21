@@ -110,16 +110,21 @@ module COSMIC
 
     tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", 
                     :fields => ["Avg. damage score", "Bg. Avg. damage score", "T-test p-value"], 
-                    :type => :list, :cast => :to_f, :namespace => COSMIC.organism)
+                    :type => :list, :cast => :to_f, :namespace => COSMIC.organism, :unnamed => true)
 
-    damage_fields = DbNSFP.database.fields.select{|f| f =~ /converted/ }
+    database = DbNSFP.database
+    database.unnamed = true
+    damage_fields = database.fields.select{|f| f =~ /converted/ }
     db = COSMIC.knowledge_base.get_database(:gene_principal_isoform_mutations)
+    db.unnamed = true
     db.with_monitor :desc => "Damage analysis using DbNSFP", :step => 10000 do
       db.through do |gene,mis|
         next if mis.empty?
-        protein = mis.first.protein
+        protein = mis.first.partition(":").first
+        next unless protein.index "ENSP"
 
-        dbNSFP_tsv = DbNSFP.database.get_prefix(protein).slice(damage_fields)
+        dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
+        dbNSFP_tsv.unnamed = true
 
         all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
         damage_scores = dbNSFP_tsv.select(:key => mis).collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
