@@ -38,7 +38,7 @@ end
 
 COSMIC.knowledge_base.register :gene_principal_isoform_mutations do
   Workflow.require_workflow "Appris"
-  require 'appris'
+  require 'rbbt/sources/appris'
 
   all_mutations = COSMIC.knowledge_base.get_database(:sample_mutations).values.compact.flatten.uniq
   organism = COSMIC.organism
