@@ -27,7 +27,7 @@ COSMIC.knowledge_base.register :mutation_isoforms do
   Workflow.require_workflow "Sequence"
 
   all_mutations = COSMIC.knowledge_base.get_database(:sample_mutations).values.compact.flatten.uniq
-  mutation2mis = Sequence.job(:mutated_isoforms_for_genomic_mutations, "COSMIC", :mutations => all_mutations, :organism => COSMIC.organism).run
+  mutation2mis = Sequence.job(:mutated_isoforms, "COSMIC", :mutations => all_mutations, :organism => COSMIC.organism).run
 
   tsv = TSV.setup({}, :key_field => "Genomic Mutation", :fields => ["Mutated Isoforms"], :type => :flat, :namespace => COSMIC.organism)
   all_mutations.each do |mutation|
