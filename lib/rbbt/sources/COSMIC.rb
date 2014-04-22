@@ -7,7 +7,6 @@ module COSMIC
   self.subdir = "share/databases/COSMIC"
 
   COSMIC.claim COSMIC.mutations, :proc do 
-    #url = "ftp://ftp.sanger.ac.uk/pub/CGP/cosmic/data_export/CosmicCompleteExport_v67_241013.tsv.gz"
     url = "ftp://ftp.sanger.ac.uk/pub/CGP/cosmic/data_export/CosmicCompleteExport_v68.tsv.gz"
 
     stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($12 != "" && $12 != "Mutation ID") { sub($12, "COSM" $12 ":" $4)}; print}\'', :in => Open.open(url), :pipe => true)
