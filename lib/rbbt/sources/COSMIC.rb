@@ -6,15 +6,32 @@ module COSMIC
   extend Resource
   self.subdir = "share/databases/COSMIC"
 
-  COSMIC.claim COSMIC.mutations, :proc do 
-    url = "ftp://ftp.sanger.ac.uk/pub/CGP/cosmic/data_export/CosmicCompleteExport_v68.tsv.gz"
+  def self.organism
+    "Hsa/jun2011"
+  end
 
-    stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($12 != "" && $12 != "Mutation ID") { sub($12, "COSM" $12 ":" $4)}; print}\'', :in => Open.open(url), :pipe => true)
-    tsv = TSV.open(stream, :type => :list, :header_hash => "", :key_field => "Mutation ID", :namespace => "Hsa/jun2011")
-    tsv.fields = tsv.fields.collect{|f| f == "Gene name" ? "Associated Gene Name" : f}
-    tsv.add_field "Genomic Mutation" do |mid, values|
-      position = values["Mutation GRCh37 genome position"]
-      cds = values["Mutation CDS"]
+  COSMIC.claim COSMIC.mutations_register_data, :proc do |filename|
+    url = "http://cancer.sanger.ac.uk/files/cosmic/current_release/CosmicMutantExportIncFus.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
+  COSMIC.claim COSMIC.mutations, :proc do |directory|
+    #url = "ftp://ftp.sanger.ac.uk/pub/CGP/cosmic/data_export/CosmicCompleteExport_v68.tsv.gz"
+    #stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($12 != "" && $12 != "Mutation ID") { sub($12, "COSM" $12 ":" $4)}; print}\'', :in => Open.open(url), :pipe => true)
+     
+    url = COSMIC.mutations_register_data.produce.find
+    stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
+
+    parser = TSV::Parser.new stream, :header_hash => "", :key_field => "Mutation ID", :type => :list
+
+    dumper = TSV::Dumper.new parser.options.merge({:fields => parser.fields + ["Genomic Mutation"]})
+    dumper.init
+
+    pos_i = parser.identify_field "Mutation GRCh37 genome position"
+    cds_i = parser.identify_field "Mutation CDS"
+    dumper = TSV.traverse parser, :type => :list, :into => dumper, :bar => url do |mid, values|
+      position = values[pos_i]
+      cds = values[cds_i]
 
       if position.nil? or position.empty?
         nil
@@ -28,7 +45,7 @@ module COSMIC
         position = [chr, pos ] * ":"
 
         if cds.nil?
-          position
+          next
         else
           change = case
                    when cds =~ />/
@@ -59,12 +76,11 @@ module COSMIC
                      Log.debug "Unknown change: #{cds}"
                      "?(" << cds << ")"
                    end
-          position + ":" + change
+          [mid, values + [position + ":" + change]]
         end
       end
     end
-
-    tsv.to_s.gsub(/(\d)-(\d)/,'\1:\2')
+    dumper.stream
   end
 
   COSMIC.claim COSMIC.mutations_hg18, :proc do |filename|
@@ -145,4 +161,3 @@ end
 require 'rbbt/sources/COSMIC/indices'
 require 'rbbt/sources/COSMIC/entity'
 require 'rbbt/sources/COSMIC/knowledge_base'
-
