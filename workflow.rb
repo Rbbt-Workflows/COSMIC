@@ -13,6 +13,3 @@ end
 
 require 'rbbt/sources/COSMIC'
 
-#Workflow.require_workflow "Genomics"
-#require 'rbbt/entity/genomic_mutation'
-#require 'rbbt/entity/mutated_isoform'
