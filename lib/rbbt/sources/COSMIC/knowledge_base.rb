@@ -56,9 +56,7 @@ COSMIC.knowledge_base.register :gene_principal_isoform_mutations do
     end
   end
 
-  bar = Progress::Bar.new all_mutations.length, 0, 10000, "Mutations"
   all_mutations.each do |mutation|
-    bar.tick
     matches = COSMIC.knowledge_base.children(:mutation_isoforms, mutation)
     next if matches.nil? or matches.empty?
     matches.target.each do |mi|

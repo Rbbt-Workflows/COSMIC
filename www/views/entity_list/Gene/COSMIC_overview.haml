@@ -14,7 +14,7 @@
 
     - protein_mutations = COSMIC.knowledge_base.subset(:gene_principal_isoform_mutations, "Gene" => [gene], "Mutated Isoform" => :all).target_entity
     - protein_mutations ||= []
-    - protein_mutations.select!{|p| p =~ /ENSP.*:([A-Z*])\d+([A-Z*])/ and $1 != $2}
+    - protein_mutations.select!{|p| m = p.match(/ENSP.*:([A-Z*])\d+([A-Z*])/) and m[1] != m[2]}
 
     - if protein_mutations and protein_mutations.any?
       - positions = protein_mutations.position.sort
@@ -24,16 +24,17 @@
       - hotspot = distances.inject(0){|acc,e|  acc += 1 if e == 0; acc}.to_f / distances.length
       - unif = (0..1000).to_a.collect{ rand }
       - scaled_positions = positions.collect{|p| p.to_f / protein_size}
-      - hotspot_stat = RSRuby.instance.ks_test(scaled_positions, unif)["p.value"]
+      - hotspot_stat = R.eval "ks.test(#{R.ruby2R(scaled_positions)}, #{R.ruby2R(unif)})$p.value"
 
     - else
       - protein_size = Misc.max(gene.transcripts.sequence.collect{|s| s.nil? ? 0 : s.length}) / 3 if gene.transcripts and gene.transcripts.any?
-      - protein_size = gene.sequence.length.to_f / 3 if protein_size.nil? or protein_size == 0
+      - #protein_size = gene.sequence.length.to_f / 3 if protein_size.nil? or protein_size == 0
+      - protein_size = 999
       - mean_mut_distance = nil
       - hotspot = 0
       - hotspot_stat = 1
 
-    - damage_avg, bg_damage_avg, damage_pvalue = damage_db[gene] ? damage_db[gene].values_at("Avg. damage score", "Bg. Avg. damage score", "T-test p-value") : [0,0,0]
+    - damage_avg, bg_damage_avg, damage_pvalue = damage_db[gene] ? damage_db[gene].values_at("Avg. damage score", "Bg. Avg. damage score", "T-test p-value") : [0,0,1]
     - tsv[gene] = [protein_mutations.length, "%4.g" % (protein_mutations.length.to_f / protein_size ), "%.3g" % (mean_mut_distance || -1), "%.3g" % (hotspot * 100), hotspot_stat, damage_avg, bg_damage_avg, damage_pvalue]
 
   - header "COSMIC mutations", "NumericValue"

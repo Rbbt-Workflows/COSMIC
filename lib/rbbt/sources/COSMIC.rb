@@ -16,9 +16,6 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.mutations, :proc do |directory|
-    #url = "ftp://ftp.sanger.ac.uk/pub/CGP/cosmic/data_export/CosmicCompleteExport_v68.tsv.gz"
-    #stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($12 != "" && $12 != "Mutation ID") { sub($12, "COSM" $12 ":" $4)}; print}\'', :in => Open.open(url), :pipe => true)
-     
     url = COSMIC.mutations_register_data.produce.find
     stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
 
@@ -119,39 +116,41 @@ module COSMIC
 
 
   COSMIC.claim COSMIC.gene_damage_analysis, :proc do
-    Workflow.require_workflow "MutEval"
-    require 'db_nsfp'
-    require 'rsruby'
 
     tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", 
                     :fields => ["Avg. damage score", "Bg. Avg. damage score", "T-test p-value"], 
                     :type => :list, :cast => :to_f, :namespace => COSMIC.organism, :unnamed => true)
 
+    Workflow.require_workflow 'DbNSFP'
+    require 'rbbt/util/R'
     database = DbNSFP.database
     database.unnamed = true
-    damage_fields = database.fields.select{|f| f =~ /converted/ }
+    damage_fields = database.fields.select{|f| f =~ /rankscore/ }
     db = COSMIC.knowledge_base.get_database(:gene_principal_isoform_mutations)
-    db.unnamed = true
-    db.with_monitor :desc => "Damage analysis using DbNSFP", :step => 10000 do
-      db.through do |gene,mis|
-        next if mis.empty?
-        protein = mis.first.partition(":").first
-        next unless protein.index "ENSP"
 
-        dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
-        dbNSFP_tsv.unnamed = true
+    R.eval "a=1" # To start Rserver for all cpus
+    RbbtSemaphore.with_semaphore 1 do |sem|
+    TSV.traverse db, :cpus => 10, :into => tsv, :bar => "Damage analysis using DbNSFP" do |gene, mis|
+      next if mis.empty?
+      protein = mis.first.partition(":").first
+      next unless protein =~ /^ENSP/
 
-        all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
-        damage_scores = dbNSFP_tsv.select(:key => mis).collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
+      dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
+      dbNSFP_tsv.unnamed = true
 
-        if damage_scores.length < 3 or all_damage_scores.uniq.length < 3
-          damage_score_pvalue = 1
-        else
-          damage_score_pvalue = RSRuby.instance.t_test(damage_scores, all_damage_scores,"greater")["p.value"]
+      all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
+      damage_scores = dbNSFP_tsv.select(:key => mis).collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
+
+      if damage_scores.length < 3 or all_damage_scores.uniq.length < 3
+        damage_score_pvalue = 1
+      else
+        RbbtSemaphore.synchronize(sem) do
+          damage_score_pvalue = R.eval("t.test(#{R.ruby2R(damage_scores)}, #{R.ruby2R(all_damage_scores)}, 'greater')['p.value']").to_f
         end
-
-        tsv[gene] = [Misc.mean(all_damage_scores), Misc.mean(damage_scores), damage_score_pvalue]
       end
+      [gene, [Misc.mean(all_damage_scores), Misc.mean(damage_scores), damage_score_pvalue]]
+      #[gene, [all_damage_scores, damage_scores]]
+    end
     end
 
     tsv.to_s
@@ -161,3 +160,8 @@ end
 require 'rbbt/sources/COSMIC/indices'
 require 'rbbt/sources/COSMIC/entity'
 require 'rbbt/sources/COSMIC/knowledge_base'
+
+if __FILE__ == $0
+  require 'rbbt/workflow'
+  COSMIC.gene_damage_analysis.produce
+end
