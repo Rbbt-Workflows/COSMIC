@@ -130,27 +130,26 @@ module COSMIC
 
     R.eval "a=1" # To start Rserver for all cpus
     RbbtSemaphore.with_semaphore 1 do |sem|
-    TSV.traverse db, :cpus => 10, :into => tsv, :bar => "Damage analysis using DbNSFP" do |gene, mis|
-      next if mis.empty?
-      protein = mis.first.partition(":").first
-      next unless protein =~ /^ENSP/
+      TSV.traverse db, :cpus => 10, :into => tsv, :bar => "Damage analysis using DbNSFP" do |gene, mis|
+        next if mis.empty?
+        protein = mis.first.partition(":").first
+        next unless protein =~ /^ENSP/
 
-      dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
-      dbNSFP_tsv.unnamed = true
+          dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
+        dbNSFP_tsv.unnamed = true
 
-      all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
-      damage_scores = dbNSFP_tsv.select(:key => mis).collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
+        all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
+        damage_scores = dbNSFP_tsv.select(:key => mis).collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
 
-      if damage_scores.length < 3 or all_damage_scores.uniq.length < 3
-        damage_score_pvalue = 1
-      else
-        RbbtSemaphore.synchronize(sem) do
-          damage_score_pvalue = R.eval("t.test(#{R.ruby2R(damage_scores)}, #{R.ruby2R(all_damage_scores)}, 'greater')['p.value']").to_f
+        if damage_scores.length < 3 or all_damage_scores.uniq.length < 3
+          damage_score_pvalue = 1
+        else
+          RbbtSemaphore.synchronize(sem) do
+            damage_score_pvalue = R.eval("t.test(#{R.ruby2R(damage_scores)}, #{R.ruby2R(all_damage_scores)}, 'greater')['p.value']").to_f
+          end
         end
+        [gene, [Misc.mean(all_damage_scores), Misc.mean(damage_scores), damage_score_pvalue]]
       end
-      [gene, [Misc.mean(all_damage_scores), Misc.mean(damage_scores), damage_score_pvalue]]
-      #[gene, [all_damage_scores, damage_scores]]
-    end
     end
 
     tsv.to_s
