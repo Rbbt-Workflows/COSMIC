@@ -7,7 +7,7 @@ module COSMIC
   self.subdir = "share/databases/COSMIC"
 
   def self.organism
-    "Hsa/jun2011"
+    Organism.default_code "Hsa"
   end
 
   COSMIC.claim COSMIC.mutations_register_data, :proc do |filename|
@@ -38,8 +38,9 @@ module COSMIC
         chr, pos = position.split(":")
         chr = "X" if chr == "23"
         chr = "Y" if chr == "24"
-        chr = "M" if chr == "25"
+        chr = "MT" if chr == "25"
         position = [chr, pos ] * ":"
+        next if chr.length >= 3
 
         if cds.nil?
           next
@@ -91,7 +92,7 @@ module COSMIC
 
       mutations = CMD.cmd("grep -v '^#'|cut -f #{mutation_pos + 1}|sort -u", :in => COSMIC.mutations.open).read.split("\n").select{|m| m.include? ":" }
 
-      translations = Misc.process_to_hash(mutations){|mutations| Organism.liftOver(mutations, "Hsa/jun2011", "Hsa/may2009")}
+      translations = Misc.process_to_hash(mutations){|mutations| Organism.liftOver(mutations, self.organism, "Hsa/may2009")}
 
       File.open(filename, 'w') do |f|
         f.puts "#: :type=:list#:namespace=Hsa/may2009"
