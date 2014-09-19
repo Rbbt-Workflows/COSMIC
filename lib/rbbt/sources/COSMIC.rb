@@ -15,6 +15,12 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
+  COSMIC.claim COSMIC.sample_info, :proc do |file|
+    site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
+    tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
+    tsv.to_s
+  end
+
   COSMIC.claim COSMIC.mutations, :proc do |directory|
     url = COSMIC.mutations_register_data.produce.find
     stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
@@ -157,11 +163,12 @@ module COSMIC
   end
 end
 
+Misc.add_libdir './lib'
 require 'rbbt/sources/COSMIC/indices'
 require 'rbbt/sources/COSMIC/entity'
 require 'rbbt/sources/COSMIC/knowledge_base'
 
 if __FILE__ == $0
   require 'rbbt/workflow'
-  COSMIC.gene_damage_analysis.produce
+  ppp COSMIC.sample_info.produce(true).tsv.to_s
 end

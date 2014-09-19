@@ -8,7 +8,7 @@ module COSMIC
 end
 
 COSMIC.knowledge_base.register :sample_mutations, COSMIC.mutations, 
-  :source => "Sample name=>Sample", :fields => ["Genomic Mutation"], :merge => true, :unnamed => true, :namespace => COSMIC.organism
+  :source => "Sample name=~Sample", :fields => ["Genomic Mutation"], :type => :flat, :merge => true, :unnamed => true, :namespace => COSMIC.organism
 
 COSMIC.knowledge_base.register :mutation_genes do
   Workflow.require_workflow "Sequence"
@@ -35,6 +35,24 @@ COSMIC.knowledge_base.register :mutation_isoforms do
   end
   tsv
 end
+
+COSMIC.knowledge_base.register :mutation_protein_changes do
+  database = COSMIC.knowledge_base.get_database(:mutation_isoforms)
+  TSV.traverse database, :into => :dumper,
+    :key_field => "Genomic Mutation", :fields => ["Ensembl Protein ID", "Change"],
+    :namespace => COSMIC.organism, :type => :list do |mutation, mis|
+
+    values = mis.collect do |mi|
+      protein, _sep, change = mi.partition ":"
+      next unless change =~ /[A-Z*]\d+(?:[A-Z*]|FrameShift)/
+      [protein, change]
+    end.compact
+
+
+    [mutation, Misc.zip_fields(values)]
+  end
+end
+
 
 COSMIC.knowledge_base.register :gene_principal_isoform_mutations do
   Workflow.require_workflow "Appris"
