@@ -165,10 +165,6 @@ end
 
 Misc.add_libdir './lib'
 require 'rbbt/sources/COSMIC/indices'
-require 'rbbt/sources/COSMIC/entity'
-require 'rbbt/sources/COSMIC/knowledge_base'
+require 'rbbt/entity/COSMIC'
+require 'rbbt/knowledge_base/COSMIC'
 
-if __FILE__ == $0
-  require 'rbbt/workflow'
-  ppp COSMIC.sample_info.produce(true).tsv.to_s
-end
