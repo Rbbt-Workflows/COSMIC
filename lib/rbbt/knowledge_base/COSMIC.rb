@@ -8,7 +8,7 @@ module COSMIC
 end
 
 COSMIC.knowledge_base.register :sample_mutations, COSMIC.mutations, 
-  :source => "Sample name=~Sample", :fields => ["Genomic Mutation"], :type => :flat, :merge => true, :unnamed => true, :namespace => COSMIC.organism
+  :source => "Sample name=~Sample", :target => ["Genomic Mutation"], :fields => ["Mutation zygosity"], :merge => true, :unnamed => true, :namespace => COSMIC.organism, :type => :double
 
 COSMIC.knowledge_base.register :mutation_genes do
   Workflow.require_workflow "Sequence"
@@ -20,19 +20,23 @@ COSMIC.knowledge_base.register :mutation_genes do
   all_mutations.each do |mutation|
     tsv[mutation] = mutation2genes[mutation]
   end
+
   tsv
 end
 
 COSMIC.knowledge_base.register :mutation_isoforms do
   Workflow.require_workflow "Sequence"
 
-  all_mutations = COSMIC.knowledge_base.get_database(:sample_mutations).values.compact.flatten.uniq
-  mutation2mis = Sequence.job(:mutated_isoforms_fast, "COSMIC", :mutations => all_mutations, :organism => COSMIC.organism).run
+  sample_mutations = COSMIC.knowledge_base.get_database(:sample_mutations)
+  all_mutations = sample_mutations.values.compact.flatten.uniq
+  mutation2mis = Sequence.job(:mutated_isoforms_fast, "COSMIC", :mutations => all_mutations, :organism => COSMIC.organism, :watson => false).run
 
   tsv = TSV.setup({}, :key_field => "Genomic Mutation", :fields => ["Mutated Isoforms"], :type => :flat, :namespace => COSMIC.organism)
   all_mutations.each do |mutation|
-    tsv[mutation] = mutation2mis[mutation]
+    mis = mutation2mis[mutation]
+    tsv[mutation] = mis
   end
+
   tsv
 end
 
@@ -43,7 +47,7 @@ COSMIC.knowledge_base.register :mutation_protein_changes do
     :key_field => "Genomic Mutation", :fields => ["Ensembl Protein ID", "Change"],
     :namespace => COSMIC.organism, :type => :double do |mutation, mis|
 
-    values = mis.collect do |mi|
+    values = mis.flatten.collect do |mi|
       protein, _sep, change = mi.partition ":"
       next unless change =~ /[A-Z*]\d+(?:[A-Z*]|FrameShift)/
       [protein, change]

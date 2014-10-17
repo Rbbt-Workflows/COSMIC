@@ -138,11 +138,12 @@ module COSMIC
     R.eval "a=1" # To start Rserver for all cpus
     RbbtSemaphore.with_semaphore 1 do |sem|
       TSV.traverse db, :cpus => 10, :into => tsv, :bar => "Damage analysis using DbNSFP" do |gene, mis|
+        mis = mis.flatten.compact
         next if mis.empty?
         protein = mis.first.partition(":").first
         next unless protein =~ /^ENSP/
 
-          dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
+        dbNSFP_tsv = database.get_prefix(protein).slice(damage_fields)
         dbNSFP_tsv.unnamed = true
 
         all_damage_scores = dbNSFP_tsv.collect{|k,values| good = values.reject{|v| v == -999}; good.any? ? Misc.mean(good) : nil}.compact
@@ -167,4 +168,3 @@ Misc.add_libdir './lib'
 require 'rbbt/sources/COSMIC/indices'
 require 'rbbt/entity/COSMIC'
 require 'rbbt/knowledge_base/COSMIC'
-

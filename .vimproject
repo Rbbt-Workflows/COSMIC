@@ -10,6 +10,12 @@ COSMIC=/$PWD filter="*"{
      knowledge_base.rb
     }
    }
+   entity=entity{
+    COSMIC.rb
+   }
+   knowledge_base=knowledge_base{
+    COSMIC.rb
+   }
   }
  }
  share=share{
