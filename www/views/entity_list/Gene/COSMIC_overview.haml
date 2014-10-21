@@ -58,7 +58,6 @@
     - else
       - -Math.log10(pvalue)
 
-  - ppp tsv
   - tsv = tsv.add_field "Log10(hotspot p-value)" do |k,v|
     - pvalue = v["Hotspot statistic"] 
     - pvalue = min if pvalue < min

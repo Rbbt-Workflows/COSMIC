@@ -156,7 +156,7 @@ module COSMIC
             damage_score_pvalue = R.eval("t.test(#{R.ruby2R(damage_scores)}, #{R.ruby2R(all_damage_scores)}, 'greater')['p.value']").to_f
           end
         end
-        [gene, [Misc.mean(all_damage_scores), Misc.mean(damage_scores), damage_score_pvalue]]
+        [gene, [Misc.mean(damage_scores), Misc.mean(all_damage_scores), damage_score_pvalue]]
       end
     end
 
