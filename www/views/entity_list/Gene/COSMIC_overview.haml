@@ -7,7 +7,7 @@
     :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Recurrent %", "Hotspot statistic", "Avg. damage score", "Bg. Avg. damage score", "Damage t-test p-value"], 
     :type => :list, :cast => :to_f,:namespace => list.organism, )
 
-  - list.sort_by{|gene| gene.name || ""}.ensembl.compact.each do |gene|
+  - TSV.traverse list.sort_by{|gene| gene.name || ""}.ensembl.compact, :type => :array, :bar => @step.progress_bar("Processing genes") do |gene|
     - log gene.name
     - next if gene.transcripts.nil? or gene.transcripts.empty?
     - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last
