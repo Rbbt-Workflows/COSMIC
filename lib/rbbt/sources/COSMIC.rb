@@ -23,8 +23,13 @@ module COSMIC
 
   COSMIC.claim COSMIC.mutations, :proc do |directory|
     url = COSMIC.mutations_register_data.produce.find
-    stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
+    #stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
+    
+    #all_fields = TSV.parse_header(url, :header_hash => "").all_fields
+    #mutation_id_field, sample_id_field = ["Mutation ID", "ID_sample"].collect{|f| all_fields.index(f) + 1} 
+    #stream = CMD.cmd("awk 'BEGIN{FS=\"\\t\"} { if ($#{mutation_id_field} != \"\" && $#{mutation_id_field} != \"Mutation ID\") { sub($#{mutation_id_field}, \"COSM:\" $#{mutation_id_field} \":\" $#{sample_id_field})}; print}'", :in => Open.open(url), :pipe => true)
 
+    stream = Open.open(url)
     parser = TSV::Parser.new stream, :header_hash => "", :key_field => "Mutation ID", :type => :list
 
     dumper = TSV::Dumper.new parser.options.merge({:fields => parser.fields + ["Genomic Mutation"]})
@@ -32,9 +37,13 @@ module COSMIC
 
     pos_i = parser.identify_field "Mutation GRCh37 genome position"
     cds_i = parser.identify_field "Mutation CDS"
+    sample_i = parser.identify_field "ID_sample"
     dumper = TSV.traverse parser, :type => :list, :into => dumper, :bar => url do |mid, values|
       position = values[pos_i]
       cds = values[cds_i]
+      sample = values[sample_i]
+
+      mid = ["COSM", mid, sample] * ":"
 
       if position.nil? or position.empty?
         nil
