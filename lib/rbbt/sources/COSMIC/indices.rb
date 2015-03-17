@@ -31,6 +31,6 @@ module COSMIC
     build = Organism.hg_build(organism)
     file = COSMIC[build == "hg19" ? "mutations" : "mutations_hg18"]
     @mutation_index ||= {}
-    @mutation_index[build] ||= file.tsv :persist => true, :fields => ["Genomic Mutation"], :type => :single, :persist => true
+    @mutation_index[build] ||= file.tsv :fields => ["Genomic Mutation"], :type => :single, :persist => true
   end
 end
