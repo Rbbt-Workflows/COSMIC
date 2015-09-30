@@ -66,9 +66,9 @@
     - else
       - -Math.log10(pvalue)
 
-  = tool :figure, :plot => :scatter, :data => tsv, 
+  = tool :nvd3, :plot => :scatter, :data => tsv, 
     :size => "Mutations / Protein size", :y => "Log10(hotspot p-value)", :x => "Log10(damage p-value)", 
     :width => "100%", :height => '600px',
     :title => "Gene COSMIC overview",
-    :caption => "(Y) -Log10(pvalue) of non-uniformity ~ (X) -Log10(p-value) of damage bias; (Size) Mutations by protein AA"
+    :caption => "(Y) -Log10(p-value) of non-uniformity ~ (X) -Log10(p-value) of damage bias; (Size) Mutations by protein AA"
 

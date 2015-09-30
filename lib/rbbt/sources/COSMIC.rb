@@ -11,7 +11,8 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.mutations_register_data, :proc do |filename|
-    url = "http://cancer.sanger.ac.uk/files/cosmic/current_release/CosmicMutantExportIncFus.tsv.gz"
+    #url = "http://cancer.sanger.ac.uk/files/cosmic/current_release/CosmicMutantExportIncFus.tsv.gz"
+    url = "sftp://sftp-cancer.sanger.ac.uk/files/grch38/cosmic/v72/CosmicMutantExport.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
