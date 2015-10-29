@@ -4,7 +4,7 @@ module COSMIC
   class << self 
     attr_accessor :knowledge_base
   end
-  self.knowledge_base = KnowledgeBase.new Rbbt.var.knowledge_base.COSMIC, self.organism
+  self.knowledge_base = KnowledgeBase.new Rbbt.var.COSMIC.knowledge_base, self.organism
 end
 
 COSMIC.knowledge_base.register :sample_mutations, COSMIC.mutations, 
