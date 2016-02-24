@@ -12,7 +12,7 @@ module COSMIC
 
   COSMIC.claim COSMIC.mutations_register_data, :proc do |filename|
     #url = "http://cancer.sanger.ac.uk/files/cosmic/current_release/CosmicMutantExportIncFus.tsv.gz"
-    url = "sftp://sftp-cancer.sanger.ac.uk/files/grch38/cosmic/v72/CosmicMutantExport.tsv.gz"
+    url = "sftp://sftp-cancer.sanger.ac.uk/files/grch37/cosmic/v74/CosmicMutantExport.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
@@ -36,7 +36,7 @@ module COSMIC
     dumper = TSV::Dumper.new parser.options.merge({:fields => parser.fields + ["Genomic Mutation"]})
     dumper.init
 
-    pos_i = parser.identify_field "Mutation GRCh37 genome position"
+    pos_i = parser.identify_field "Mutation genome position"
     cds_i = parser.identify_field "Mutation CDS"
     sample_i = parser.identify_field "ID_sample"
     dumper = TSV.traverse parser, :type => :list, :into => dumper, :bar => url do |mid, values|
