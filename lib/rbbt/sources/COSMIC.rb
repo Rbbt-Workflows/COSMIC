@@ -1,6 +1,7 @@
 require 'rbbt'
 require 'rbbt/tsv'
 require 'rbbt/resource'
+require 'rbbt/util/misc/omics'
 
 module COSMIC
   extend Resource
@@ -10,9 +11,13 @@ module COSMIC
     Organism.default_code "Hsa"
   end
 
-  COSMIC.claim COSMIC.mutations_register_data, :proc do |filename|
-    #url = "http://cancer.sanger.ac.uk/files/cosmic/current_release/CosmicMutantExportIncFus.tsv.gz"
-    url = "sftp://sftp-cancer.sanger.ac.uk/files/grch37/cosmic/v74/CosmicMutantExport.tsv.gz"
+  COSMIC.claim COSMIC.CosmicMutantExport, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicMutantExport.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
+  COSMIC.claim COSMIC.CosmicResistanceMutations, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicResistanceMutations.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
@@ -23,11 +28,11 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.mutations, :proc do |directory|
-    url = COSMIC.mutations_register_data.produce.find
+    url = COSMIC.CosmicMutantExport.produce.find
     #stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
-    
+
     #all_fields = TSV.parse_header(url, :header_hash => "").all_fields
-    #mutation_id_field, sample_id_field = ["Mutation ID", "ID_sample"].collect{|f| all_fields.index(f) + 1} 
+    #mutation_id_field, sample_id_field = ["Mutation ID", "ID_sample"].collect{|f| all_fields.index(f) + 1}
     #stream = CMD.cmd("awk 'BEGIN{FS=\"\\t\"} { if ($#{mutation_id_field} != \"\" && $#{mutation_id_field} != \"Mutation ID\") { sub($#{mutation_id_field}, \"COSM:\" $#{mutation_id_field} \":\" $#{sample_id_field})}; print}'", :in => Open.open(url), :pipe => true)
 
     stream = Open.open(url)
@@ -61,40 +66,32 @@ module COSMIC
         if cds.nil?
           next
         else
-          change = case
-                   when cds =~ />/
-                     cds.split(">").last
-                   when cds =~ /del/
-                     deletion = cds.split("del").last
-                     case
-                     when deletion =~ /^\d+$/
-                       "-" * deletion.to_i 
-                     when deletion =~ /^[ACTG]+$/i
-                       "-" * deletion.length
-                     else
-                       Log.debug "Unknown deletion: #{ deletion }"
-                       deletion
-                     end
-                   when cds =~ /ins/
-                     insertion = cds.split("ins").last
-                     case
-                     when insertion =~ /^\d+$/
-                       "+" + "N" * insertion.to_i 
-                     when insertion =~ /^[NACTG]+$/i
-                       "+" + insertion
-                     else
-                       Log.debug "Unknown insertion: #{insertion }"
-                       insertion
-                     end
-                   else
-                     Log.debug "Unknown change: #{cds}"
-                     "?(" << cds << ")"
-                   end
-          [mid, values + [position + ":" + change]]
+          change = Misc.translate_dna_mutation_hgvs2rbbt(cds)
         end
       end
+      genomic_mutation = [chr,pos,change] * ":"
+      [mid,values+[genomic_mutation]]
     end
     dumper.stream
+  end
+
+  COSMIC.claim COSMIC.mi_drug_resistance, :proc do |filename|
+    tsv = COSMIC.CosmicResistanceMutations.tsv :key_field => "Transcript", :fields => ["AA Mutation", "Drug Name","Sample ID", "Pubmed Id"], :type => :double, :merge => true, :header_hash => ''
+    res = TSV.setup({}, :key_field => "Mutated Isoform", :fields => ["Drug name","Sample","PMID"], :type => :double)
+    organism = "Hsa/feb2014"
+    enst2ensp = Organism.transcripts(organism).tsv :key_field => "Ensembl Transcript ID", :fields => ["Ensembl Protein ID"], :type => :single, :merge => true, :persist => true
+    TSV.traverse tsv, :into => res, :bar => true do |transcript, values|
+      protein = enst2ensp[transcript]
+      new = []
+      Misc.zip_fields(values).each do |aa_mutation,drug,sample,pmid|
+        mutation = Misc.translate_prot_mutation_hgvs2rbbt(aa_mutation)
+        mi = [protein,mutation] * ":"
+        new << [mi, [drug,sample,pmid]]
+      end
+      new.extend MultipleResult
+      new
+    end
+    res.to_s
   end
 
   COSMIC.claim COSMIC.mutations_hg18, :proc do |filename|
@@ -134,8 +131,8 @@ module COSMIC
 
   COSMIC.claim COSMIC.gene_damage_analysis, :proc do
 
-    tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", 
-                    :fields => ["Avg. damage score", "Bg. Avg. damage score", "T-test p-value"], 
+    tsv = TSV.setup({}, :key_field => "Ensembl Gene ID",
+                    :fields => ["Avg. damage score", "Bg. Avg. damage score", "T-test p-value"],
                     :type => :list, :cast => :to_f, :namespace => COSMIC.organism, :unnamed => true)
 
     Workflow.require_workflow 'DbNSFP'
