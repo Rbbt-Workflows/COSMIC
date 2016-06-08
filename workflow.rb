@@ -42,7 +42,7 @@ module COSMIC
       mis = Sequence.job(:mutated_isoforms_fast, nil, :mutations => genomic_mutations, :watson => false, :organism => organism, :non_synonymous => true).run.values.flatten.compact.uniq
       next unless soft_match or (mis & mutated_isoforms).any?
       proteins = mis.collect{|mi| mi.partition(":").first }
-      
+
       hit_genes = ensp2ensg.chunked_values_at proteins
 
       hit_mis = mis.select{|mi| p = mi.partition(":").first; g = ensp2ensg[p]; genes.include? g}
