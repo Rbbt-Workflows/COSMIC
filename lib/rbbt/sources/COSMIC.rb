@@ -21,6 +21,12 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
+
+  COSMIC.claim COSMIC.CosmicCompleteCNA, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteCNA.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
   COSMIC.claim COSMIC.sample_info, :proc do |file|
     site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
     tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
@@ -90,6 +96,15 @@ module COSMIC
       end
       new.extend MultipleResult
       new
+    end
+    res.to_s
+  end
+
+  COSMIC.claim COSMIC.completeCNA, :proc do |filename|
+    tsv = COSMIC.CosmicCompleteCNA.tsv :key_field => "SAMPLE_NAME", :fields => ["MUT_TYPE"], :header_hash => "", :type => :single
+    res = TSV.setup({}, :key_field => "Sample", :fields => ["CNA"], :type => :single)
+    TSV.traverse tsv, :into => res, :bar => true do |sample, cna|
+      [sample, cna]
     end
     res.to_s
   end
