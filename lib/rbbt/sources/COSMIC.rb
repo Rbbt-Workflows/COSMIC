@@ -85,6 +85,7 @@ module COSMIC
       new = []
       Misc.zip_fields(values).each do |aa_mutation,drug,sample,pmid,zygosity|
         mutation = Misc.translate_prot_mutation_hgvs2rbbt(aa_mutation)
+        next if mutation.nil?
         mi = [protein,mutation] * ":"
         new << [mi, [drug,sample,pmid,zygosity]]
       end
