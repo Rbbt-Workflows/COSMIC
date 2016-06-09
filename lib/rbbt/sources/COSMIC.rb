@@ -76,17 +76,17 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.mi_drug_resistance, :proc do |filename|
-    tsv = COSMIC.CosmicResistanceMutations.tsv :key_field => "Transcript", :fields => ["AA Mutation", "Drug Name","Sample ID", "Pubmed Id"], :type => :double, :merge => true, :header_hash => ''
-    res = TSV.setup({}, :key_field => "Mutated Isoform", :fields => ["Drug name","Sample","PMID"], :type => :double)
+    tsv = COSMIC.CosmicResistanceMutations.tsv :key_field => "Transcript", :fields => ["AA Mutation", "Drug Name","Sample ID", "Pubmed Id", "Zygosity"], :type => :double, :merge => true, :header_hash => ''
+    res = TSV.setup({}, :key_field => "Mutated Isoform", :fields => ["Drug name","Sample","PMID", "Zygosity"], :type => :double)
     organism = "Hsa/feb2014"
     enst2ensp = Organism.transcripts(organism).tsv :key_field => "Ensembl Transcript ID", :fields => ["Ensembl Protein ID"], :type => :single, :merge => true, :persist => true
     TSV.traverse tsv, :into => res, :bar => true do |transcript, values|
       protein = enst2ensp[transcript]
       new = []
-      Misc.zip_fields(values).each do |aa_mutation,drug,sample,pmid|
+      Misc.zip_fields(values).each do |aa_mutation,drug,sample,pmid,zygosity|
         mutation = Misc.translate_prot_mutation_hgvs2rbbt(aa_mutation)
         mi = [protein,mutation] * ":"
-        new << [mi, [drug,sample,pmid]]
+        new << [mi, [drug,sample,pmid,zygosity]]
       end
       new.extend MultipleResult
       new
