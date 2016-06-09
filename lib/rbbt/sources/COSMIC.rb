@@ -21,6 +21,11 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
+  COSMIC.claim COSMIC.cancer_gene_census, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/cancer_gene_census.csv"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
   COSMIC.claim COSMIC.sample_info, :proc do |file|
     site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
     tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
@@ -90,6 +95,17 @@ module COSMIC
       end
       new.extend MultipleResult
       new
+    end
+    res.to_s
+  end
+
+  COSMIC.claim COSMIC.gene_census, :proc do |filename|
+    tsv = COSMIC.cancer_gene_census.tsv :key_field => "Entrez GeneId", :fields => [], :type => :single, :sep => ",", :header_hash => ''
+    res = TSV.setup({}, :key_field => "Entrez GeneId", :fields => [], :type => :single)
+    organism = "Hsa/feb2014"
+    entrez2ensg = Organism.identifiers(organism).tsv :key_field => "Entrez Gene ID", :fields => ["Ensembl Gene ID"], :type => :single
+    TSV.traverse tsv, :into => res, :bar => true do |entrez|
+      entrez2ensg[entrez]
     end
     res.to_s
   end
