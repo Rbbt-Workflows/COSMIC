@@ -101,7 +101,7 @@ module COSMIC
 
   COSMIC.claim COSMIC.gene_census, :proc do |filename|
     tsv = COSMIC.cancer_gene_census.tsv :key_field => "Entrez GeneId", :fields => [], :type => :single, :sep => ",", :header_hash => ''
-    res = TSV.setup({}, :key_field => "Entrez GeneId", :fields => [], :type => :single)
+    res = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => [], :type => :single)
     organism = "Hsa/feb2014"
     entrez2ensg = Organism.identifiers(organism).tsv :key_field => "Entrez Gene ID", :fields => ["Ensembl Gene ID"], :type => :single
     TSV.traverse tsv, :into => res, :bar => true do |entrez|
