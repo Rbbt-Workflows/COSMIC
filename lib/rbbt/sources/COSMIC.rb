@@ -101,10 +101,15 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.completeCNA, :proc do |filename|
-    tsv = COSMIC.CosmicCompleteCNA.tsv :key_field => "SAMPLE_NAME", :fields => ["MUT_TYPE"], :header_hash => "", :type => :single
-    res = TSV.setup({}, :key_field => "Sample", :fields => ["CNA"], :type => :single)
-    TSV.traverse tsv, :into => res, :bar => true do |sample, cna|
-      [sample, cna]
+    tsv = COSMIC.CosmicCompleteCNA.tsv :key_field => "SAMPLE_NAME", :fields => ["gene_name", "MUT_TYPE"], :header_hash => "", :merge => true, :type => :double
+    res = TSV.setup({}, :key_field => "Sample name", :fields => ["Gene","CNA"], :type => :double)
+    TSV.traverse tsv, :into => res, :bar => true do |sample, values|
+      new = []
+      Misc.zip_fields(values).each do |gene, cna|
+        new << [sample, [gene, cna]]
+      end
+      new.extend MultipleResult
+      new
     end
     res.to_s
   end
