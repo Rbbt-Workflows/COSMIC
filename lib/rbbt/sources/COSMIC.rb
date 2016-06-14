@@ -103,10 +103,27 @@ module COSMIC
   COSMIC.claim COSMIC.completeCNA, :proc do |filename|
     tsv = COSMIC.CosmicCompleteCNA.tsv :key_field => "SAMPLE_NAME", :fields => ["gene_name", "MUT_TYPE"], :header_hash => "", :merge => true, :type => :double
     res = TSV.setup({}, :key_field => "Sample name", :fields => ["Gene","CNA"], :type => :double)
+    organism = "Hsa/feb2014"
+    gene2ensg = Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true
+    ensg2enst = Organism.transcripts(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Ensembl Transcript ID"]
     TSV.traverse tsv, :into => res, :bar => true do |sample, values|
       new = []
       Misc.zip_fields(values).each do |gene, cna|
-        new << [sample, [gene, cna]]
+        transcript = case
+                     when gene =~ /_ENST/
+                       gene.split("_").last
+                     when gene =~ /ENSG/
+                       ensg2enst[gene]
+                     else
+                       ensg = gene2ensg[gene]
+                       if ensg.nil?
+                         Log.debug "Unknown gene name: #{gene}"
+                         nil
+                       else
+                         ensg2enst[ensg]
+                       end
+                     end
+        new << [sample, [transcript, cna]] unless transcript.nil?
       end
       new.extend MultipleResult
       new
