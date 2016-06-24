@@ -29,15 +29,10 @@ COSMIC.knowledge_base.register :mutation_isoforms do
 
   sample_mutations = COSMIC.knowledge_base.get_database(:sample_mutations)
   all_mutations = sample_mutations.values.compact.flatten.uniq
-  mutation2mis = Sequence.job(:mutated_isoforms_fast, "COSMIC", :mutations => all_mutations, :organism => COSMIC.organism, :watson => false).run
+  mutation2mis = Sequence.job(:mutated_isoforms_fast, "COSMIC", :mutations => all_mutations, :organism => COSMIC.organism, :watson => false)
+  mutation2mis.run(true).join
 
-  tsv = TSV.setup({}, :key_field => "Genomic Mutation", :fields => ["Mutated Isoforms"], :type => :flat, :namespace => COSMIC.organism)
-  all_mutations.each do |mutation|
-    mis = mutation2mis[mutation]
-    tsv[mutation] = mis
-  end
-
-  tsv
+  mutation2mis.path
 end
 
 COSMIC.knowledge_base.register :mutation_protein_changes do
