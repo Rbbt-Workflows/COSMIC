@@ -21,6 +21,12 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
+
+  COSMIC.claim COSMIC.CosmicCompleteCNA, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteCNA.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
   COSMIC.claim COSMIC.sample_info, :proc do |file|
     site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
     tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
@@ -88,6 +94,37 @@ module COSMIC
         next if mutation.nil?
         mi = [protein,mutation] * ":"
         new << [mi, [drug,sample,pmid,zygosity]]
+      end
+      new.extend MultipleResult
+      new
+    end
+    res.to_s
+  end
+
+  COSMIC.claim COSMIC.completeCNA, :proc do |filename|
+    tsv = COSMIC.CosmicCompleteCNA.tsv :key_field => "SAMPLE_NAME", :fields => ["gene_name", "MUT_TYPE"], :header_hash => "", :merge => true, :type => :double
+    res = TSV.setup({}, :key_field => "Sample name", :fields => ["Gene","CNA"], :type => :double)
+    organism = "Hsa/feb2014"
+    gene2ensg = Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true
+    ensg2enst = Organism.transcripts(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Ensembl Transcript ID"]
+    TSV.traverse tsv, :into => res, :bar => true do |sample, values|
+      new = []
+      Misc.zip_fields(values).each do |gene, cna|
+        transcript = case
+                     when gene =~ /_ENST/
+                       gene.split("_").last
+                     when gene =~ /ENSG/
+                       ensg2enst[gene]
+                     else
+                       ensg = gene2ensg[gene]
+                       if ensg.nil?
+                         Log.debug "Unknown gene name: #{gene}"
+                         nil
+                       else
+                         ensg2enst[ensg]
+                       end
+                     end
+        new << [sample, [transcript, cna]] unless transcript.nil?
       end
       new.extend MultipleResult
       new
