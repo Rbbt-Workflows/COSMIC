@@ -21,6 +21,11 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
+  COSMIC.claim COSMIC.CosmicCompleteGeneExpression, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteGeneExpression.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
   COSMIC.claim COSMIC.sample_info, :proc do |file|
     site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
     tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
@@ -88,6 +93,20 @@ module COSMIC
         next if mutation.nil?
         mi = [protein,mutation] * ":"
         new << [mi, [drug,sample,pmid,zygosity]]
+      end
+      new.extend MultipleResult
+      new
+    end
+    res.to_s
+  end
+
+  COSMIC.claim COSMIC.geneExpression, :proc do |filename|
+    tsv = COSMIC.CosmicCompleteGeneExpression.tsv :key_field => "SAMPLE_NAME", :fields => ["GENE_NAME", "REGULATION"], :merge => true, :header_hash => "", :type => :double
+    res = TSV.setup({}, :key_field => "Sample", :fields => ["Gene", "Regulation"], :type => :double)
+    TSV.traverse tsv, :into => res, :bar => true do |sample, values|
+      new = []
+      Misc.zip_fields(values).each do |gene, regulation|
+        new << [sample,[gene, regulation]]
       end
       new.extend MultipleResult
       new
