@@ -21,7 +21,6 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
-
   COSMIC.claim COSMIC.CosmicCompleteCNA, :proc do |filename|
     url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteCNA.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
@@ -29,6 +28,11 @@ module COSMIC
 
   COSMIC.claim COSMIC.CosmicCompleteGeneExpression, :proc do |filename|
     url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteGeneExpression.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
+  COSMIC.claim COSMIC.cancer_gene_census, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/cancer_gene_census.csv"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
@@ -106,6 +110,7 @@ module COSMIC
     res.to_s
   end
 
+<<<<<<< HEAD
   def self.gene2enst(gene)
     @@organism ||= COSMIC.organism
     @@gene2ensg ||= Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true
@@ -164,6 +169,17 @@ module COSMIC
     end
 
     TSV.collapse_stream res.stream
+=======
+  COSMIC.claim COSMIC.gene_census, :proc do |filename|
+    tsv = COSMIC.cancer_gene_census.tsv :key_field => "Entrez GeneId", :fields => [], :type => :single, :sep => ",", :header_hash => ''
+    res = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => [], :type => :single)
+    organism = "Hsa/feb2014"
+    entrez2ensg = Organism.identifiers(organism).tsv :key_field => "Entrez Gene ID", :fields => ["Ensembl Gene ID"], :type => :single
+    TSV.traverse tsv, :into => res, :bar => true do |entrez|
+      entrez2ensg[entrez]
+    end
+    res.to_s
+>>>>>>> 9abd02fcf1ac3ccd64a77a288daba83e6da224b7
   end
 
   COSMIC.claim COSMIC.mutations_hg18, :proc do |filename|
