@@ -110,7 +110,6 @@ module COSMIC
     res.to_s
   end
 
-<<<<<<< HEAD
   def self.gene2enst(gene)
     @@organism ||= COSMIC.organism
     @@gene2ensg ||= Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true
@@ -169,7 +168,8 @@ module COSMIC
     end
 
     TSV.collapse_stream res.stream
-=======
+  end
+
   COSMIC.claim COSMIC.gene_census, :proc do |filename|
     tsv = COSMIC.cancer_gene_census.tsv :key_field => "Entrez GeneId", :fields => [], :type => :single, :sep => ",", :header_hash => ''
     res = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => [], :type => :single)
@@ -179,7 +179,6 @@ module COSMIC
       entrez2ensg[entrez]
     end
     res.to_s
->>>>>>> 9abd02fcf1ac3ccd64a77a288daba83e6da224b7
   end
 
   COSMIC.claim COSMIC.mutations_hg18, :proc do |filename|
