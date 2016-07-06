@@ -21,6 +21,17 @@ module COSMIC
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
+
+  COSMIC.claim COSMIC.CosmicCompleteCNA, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteCNA.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
+  COSMIC.claim COSMIC.CosmicCompleteGeneExpression, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteGeneExpression.tsv.gz"
+    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  end
+
   COSMIC.claim COSMIC.sample_info, :proc do |file|
     site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
     tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
@@ -93,6 +104,66 @@ module COSMIC
       new
     end
     res.to_s
+  end
+
+  def self.gene2enst(gene)
+    @@organism ||= COSMIC.organism
+    @@gene2ensg ||= Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true
+    @@ensg2enst ||= Organism.transcripts(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Ensembl Transcript ID"], :type => :flat
+    transcripts = case
+                 when gene =~ /_ENST/
+                   [gene.split("_").last]
+                 when gene =~ /ENSG/
+                   @@ensg2enst[gene]
+                 else
+                   ensg = @@gene2ensg[gene]
+                   if ensg.nil?
+                     Log.debug "Unknown gene name: #{gene}"
+                     nil
+                   else
+                     @@ensg2enst[ensg]
+                   end
+                 end
+  end
+
+  COSMIC.claim COSMIC.completeCNA, :proc do |filename|
+    res = TSV::Dumper.new(:key_field => "Sample name", :fields => ["Ensembl Transcript ID","CNA"], :type => :double)
+    res.init
+    TSV.traverse COSMIC.CosmicCompleteCNA, :key_field => "SAMPLE_NAME", :fields => ["gene_name", "MUT_TYPE"],
+      :header_hash => "", :type => :double, :into => res, :bar => true do |sample, values|
+      sample = sample.first if Array === sample
+      new = []
+      Misc.zip_fields(values).each do |gene, cna|
+        transcripts = COSMIC.gene2enst(gene)
+        next if transcripts.nil?
+        cnas = [cna] * transcripts.length
+        new << [sample, [transcripts, cnas]]
+      end
+      new.extend MultipleResult
+      new
+    end
+
+    TSV.collapse_stream res.stream
+  end
+
+  COSMIC.claim COSMIC.geneExpression, :proc do |filename|
+    res = TSV::Dumper.new(:key_field => "Sample name", :fields => ["Ensembl Transcript ID","Regulation"], :type => :double)
+    res.init
+    TSV.traverse COSMIC.CosmicCompleteGeneExpression, :key_field => "SAMPLE_NAME", :fields => ["GENE_NAME", "REGULATION"],
+      :header_hash => "", :type => :double, :into => res, :bar => true do |sample, values|
+      sample = sample.first if Array === sample
+      new = []
+      Misc.zip_fields(values).each do |gene, expr|
+        transcripts = COSMIC.gene2enst(gene)
+        next if transcripts.nil?
+        exprs = [expr] * transcripts.length
+        new << [sample, [transcripts, exprs]]
+      end
+      new.extend MultipleResult
+      new
+    end
+
+    TSV.collapse_stream res.stream
   end
 
   COSMIC.claim COSMIC.mutations_hg18, :proc do |filename|
