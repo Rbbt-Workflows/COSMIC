@@ -11,28 +11,28 @@ module COSMIC
     Organism.default_code "Hsa"
   end
 
-  COSMIC.claim COSMIC.CosmicMutantExport, :proc do |filename|
-    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicMutantExport.tsv.gz"
+  COSMIC.claim COSMIC[".source"].CosmicMutantExport, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicMutantExport.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
-  COSMIC.claim COSMIC.CosmicResistanceMutations, :proc do |filename|
-    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicResistanceMutations.tsv.gz"
+  COSMIC.claim COSMIC[".source"].CosmicResistanceMutations, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicResistanceMutations.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
-  COSMIC.claim COSMIC.CosmicCompleteCNA, :proc do |filename|
-    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteCNA.tsv.gz"
+  COSMIC.claim COSMIC[".source"].CosmicCompleteCNA, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicCompleteCNA.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
-  COSMIC.claim COSMIC.CosmicCompleteGeneExpression, :proc do |filename|
-    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/CosmicCompleteGeneExpression.tsv.gz"
+  COSMIC.claim COSMIC[".source"].CosmicCompleteGeneExpression, :proc do |filename|
+    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicCompleteGeneExpression.tsv.gz"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
-  COSMIC.claim COSMIC.cancer_gene_census, :proc do |filename|
-    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v77/cancer_gene_census.csv"
+  COSMIC.claim COSMIC[".source"].cancer_gene_census, :proc do |filename|
+    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/cancer_gene_census.csv"
     raise "Follow #{ url } and place the file uncompressed in #{filename}"
   end
 
@@ -43,7 +43,7 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.mutations, :proc do |directory|
-    url = COSMIC.CosmicMutantExport.produce.find
+    url = COSMIC[".source"].CosmicMutantExport.produce.find
     #stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
 
     #all_fields = TSV.parse_header(url, :header_hash => "").all_fields
@@ -67,7 +67,8 @@ module COSMIC
       mid = ["COSM", mid, sample] * ":"
 
       if position.nil? or position.empty?
-        nil
+        Log.debug "Empty genomic position: #{mid}"
+        next
       else
         position = position.split("-").first
 
@@ -91,7 +92,7 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.mi_drug_resistance, :proc do |filename|
-    tsv = COSMIC.CosmicResistanceMutations.tsv :key_field => "Transcript", :fields => ["AA Mutation", "Drug Name","Sample ID", "Pubmed Id", "Zygosity"], :type => :double, :merge => true, :header_hash => ''
+    tsv = COSMIC[".source"].CosmicResistanceMutations.tsv :key_field => "Transcript", :fields => ["AA Mutation", "Drug Name","Sample ID", "Pubmed Id", "Zygosity"], :type => :double, :merge => true, :header_hash => ''
     res = TSV.setup({}, :key_field => "Mutated Isoform", :fields => ["Drug name","Sample","PMID", "Zygosity"], :type => :double)
     organism = "Hsa/feb2014"
     enst2ensp = Organism.transcripts(organism).tsv :key_field => "Ensembl Transcript ID", :fields => ["Ensembl Protein ID"], :type => :single, :merge => true, :persist => true
@@ -133,7 +134,7 @@ module COSMIC
   COSMIC.claim COSMIC.completeCNA, :proc do |filename|
     res = TSV::Dumper.new(:key_field => "Sample name", :fields => ["Ensembl Transcript ID","CNA"], :type => :double)
     res.init
-    TSV.traverse COSMIC.CosmicCompleteCNA, :key_field => "SAMPLE_NAME", :fields => ["gene_name", "MUT_TYPE"],
+    TSV.traverse COSMIC[".source"].CosmicCompleteCNA, :key_field => "SAMPLE_NAME", :fields => ["gene_name", "MUT_TYPE"],
       :header_hash => "", :type => :double, :into => res, :bar => true do |sample, values|
       sample = sample.first if Array === sample
       new = []
@@ -153,7 +154,7 @@ module COSMIC
   COSMIC.claim COSMIC.geneExpression, :proc do |filename|
     res = TSV::Dumper.new(:key_field => "Sample name", :fields => ["Ensembl Transcript ID","Regulation"], :type => :double)
     res.init
-    TSV.traverse COSMIC.CosmicCompleteGeneExpression, :key_field => "SAMPLE_NAME", :fields => ["GENE_NAME", "REGULATION"],
+    TSV.traverse COSMIC[".source"].CosmicCompleteGeneExpression, :key_field => "SAMPLE_NAME", :fields => ["GENE_NAME", "REGULATION"],
       :header_hash => "", :type => :double, :into => res, :bar => true do |sample, values|
       sample = sample.first if Array === sample
       new = []
@@ -171,7 +172,7 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.gene_census, :proc do |filename|
-    tsv = COSMIC.cancer_gene_census.tsv :key_field => "Entrez GeneId", :fields => [], :type => :single, :sep => ",", :header_hash => ''
+    tsv = COSMIC[".source"].cancer_gene_census.tsv :key_field => "Entrez GeneId", :fields => [], :type => :single, :sep => ",", :header_hash => ''
     res = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => [], :type => :single)
     organism = "Hsa/feb2014"
     entrez2ensg = Organism.identifiers(organism).tsv :key_field => "Entrez Gene ID", :fields => ["Ensembl Gene ID"], :type => :single
