@@ -28,7 +28,7 @@ module COSMIC
 
     # Find samples
     mutation_info = Structure.job(:annotate_mi, nil, :mutated_isoforms => mutated_isoforms, :database => "COSMIC").run
-    samples = mutation_info.column("Sample ID").values.flatten.uniq
+    samples = mutation_info.column("Sample name").values.flatten.uniq
 
     # Determing which genes are mutated in each sample
     ensp2ensg = Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true, :fields => ["Ensembl Protein ID"]
