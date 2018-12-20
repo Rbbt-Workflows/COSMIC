@@ -11,24 +11,32 @@ module COSMIC
     Organism.default_code "Hsa"
   end
 
-  COSMIC.claim COSMIC[".source"].CosmicMutantExport, :proc do |filename|
-    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicMutantExport.tsv.gz"
-    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  def self.token
+    @token ||= Rbbt::Config.get "cosmic_token", "key:cosmic_token"
+    if @token.nil?
+      raise "Please setup you cosmic_token (e.g. in .rbbt/etc/config) following instructions: $(echo 'email@example.com:mycosmicpassword' | base64)"
+    else
+      @token
+    end
+
   end
 
-  COSMIC.claim COSMIC[".source"].CosmicResistanceMutations, :proc do |filename|
-    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicResistanceMutations.tsv.gz"
-    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  def self.get_real_url(url)
+    info = JSON.parse(CMD.cmd("curl -H \"Authorization: Basic #{token}\" #{ url }").read)
+    info["url"]
   end
 
-  COSMIC.claim COSMIC[".source"].CosmicCompleteCNA, :proc do |filename|
-    url = "sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicCompleteCNA.tsv.gz"
-    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  def self.get_file_url(file)
+    url = File.join("https://cancer.sanger.ac.uk/cosmic/file_download/GRCh37/cosmic/v87/", file)
+    get_real_url(url)
   end
 
-  COSMIC.claim COSMIC[".source"].CosmicCompleteGeneExpression, :proc do |filename|
-    url = "sftp://sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/CosmicCompleteGeneExpression.tsv.gz"
-    raise "Follow #{ url } and place the file uncompressed in #{filename}"
+  %w(CosmicMutantExport CosmicStructExport CosmicResistanceMutations CosmicCompleteCNA CosmicCompleteGeneExpression).each do |file|
+    COSMIC.claim COSMIC[".source"][file + '.gz'], :proc do |filename|
+      real_url = COSMIC.get_file_url(file + '.tsv.gz')
+      CMD.cmd_log("wget -O '#{filename}' '#{real_url}'")
+      nil
+    end
   end
 
   COSMIC.claim COSMIC[".source"].cancer_gene_census, :proc do |filename|
@@ -37,13 +45,22 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.sample_info, :proc do |file|
-    site_and_histology_fieds = TSV.parse_header(COSMIC.mutations).fields.select{|f| f =~ /site|histology/i }
-    tsv = COSMIC.mutations.tsv(:key_field => "Sample name", :fields => site_and_histology_fieds, :type => :list)
-    tsv.to_s
+    parser = TSV::Parser.new COSMIC.mutations, :key_field => "Sample name", :type => :list
+    fields = parser.fields
+    site_and_histology_fieds = fields.select{|f| f =~ /site|histology/i }
+    dumper = TSV::Dumper.new parser.options.merge(:fields => site_and_histology_fieds)
+    dumper.init
+    pos = site_and_histology_fieds.collect{|f| fields.index f}
+    TSV.traverse parser, :bar => true, :into => dumper do |sample, fields|
+      [sample, fields.values_at(*pos)]
+    end
+
+    TSV.collapse_stream dumper
   end
 
   COSMIC.claim COSMIC.mutations, :proc do |directory|
     url = COSMIC[".source"].CosmicMutantExport.produce.find
+    job = Sequence.job(:expanded_vcf, "COSMIC", :vcf_file => url)
     #stream = CMD.cmd('awk \'BEGIN{FS="\t"} { if ($8 != "" && $8 != "Mutation ID") { sub($8, "COSM" $8 ":" $3)}; print}\'', :in => Open.open(url), :pipe => true)
 
     #all_fields = TSV.parse_header(url, :header_hash => "").all_fields
@@ -64,7 +81,7 @@ module COSMIC
       cds = values[cds_i]
       sample = values[sample_i]
 
-      mid = ["COSM", mid, sample] * ":"
+      mid = [mid, sample] * ":"
 
       if position.nil? or position.empty?
         Log.debug "Empty genomic position: #{mid}"
@@ -102,6 +119,7 @@ module COSMIC
       Misc.zip_fields(values).each do |aa_mutation,drug,sample,pmid,zygosity|
         mutation = Misc.translate_prot_mutation_hgvs2rbbt(aa_mutation)
         next if mutation.nil?
+        next if protein.nil? or protein.empty?
         mi = [protein,mutation] * ":"
         new << [mi, [drug,sample,pmid,zygosity]]
       end
@@ -121,7 +139,7 @@ module COSMIC
                  when gene =~ /ENSG/
                    @@ensg2enst[gene]
                  else
-                   ensg = @@gene2ensg[gene]
+                   ensg = @@gene2ensg[gene] || @@gene2ensg[gene.sub('_HUMAN','')]
                    if ensg.nil?
                      Log.debug "Unknown gene name: #{gene}"
                      nil
@@ -152,17 +170,16 @@ module COSMIC
   end
 
   COSMIC.claim COSMIC.geneExpression, :proc do |filename|
-    res = TSV::Dumper.new(:key_field => "Sample name", :fields => ["Ensembl Transcript ID","Regulation"], :type => :double)
+    res = TSV::Dumper.new(:key_field => "Sample name", :fields => ["Associated Gene Name","Regulation"], :type => :double)
     res.init
     TSV.traverse COSMIC[".source"].CosmicCompleteGeneExpression, :key_field => "SAMPLE_NAME", :fields => ["GENE_NAME", "REGULATION"],
       :header_hash => "", :type => :double, :into => res, :bar => true do |sample, values|
       sample = sample.first if Array === sample
       new = []
       Misc.zip_fields(values).each do |gene, expr|
-        transcripts = COSMIC.gene2enst(gene)
         next if transcripts.nil?
-        exprs = [expr] * transcripts.length
-        new << [sample, [transcripts, exprs]]
+        next if expr == 'normal'
+        new << [sample, [gene, expr]]
       end
       new.extend MultipleResult
       new
@@ -218,6 +235,7 @@ module COSMIC
 
 
   COSMIC.claim COSMIC.gene_damage_analysis, :proc do
+    require 'rbbt/knowledge_base/COSMIC'
 
     tsv = TSV.setup({}, :key_field => "Ensembl Gene ID",
                     :fields => ["Avg. damage score", "Bg. Avg. damage score", "T-test p-value"],
@@ -258,8 +276,3 @@ module COSMIC
     tsv.to_s
   end
 end
-
-Misc.add_libdir './lib'
-require 'rbbt/sources/COSMIC/indices'
-require 'rbbt/entity/COSMIC'
-require 'rbbt/knowledge_base/COSMIC'

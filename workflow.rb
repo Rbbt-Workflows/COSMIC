@@ -79,4 +79,5 @@ module COSMIC
 end
 
 require 'rbbt/sources/COSMIC'
+require 'rbbt/knowledge_base/COSMIC'
 
