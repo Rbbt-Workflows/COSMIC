@@ -7,18 +7,18 @@ module COSMIC
   extend Resource
   self.subdir = "share/databases/COSMIC"
 
+  VERSION='v92'
   def self.organism
     Organism.default_code "Hsa"
   end
 
   def self.token
-    @token ||= Rbbt::Config.get "cosmic_token", "key:cosmic_token"
+    @token ||= Rbbt::Config.get "cosmic_token", "key:cosmic_token", :default => ENV["COSMIC_TOKEN"]
     if @token.nil?
       raise "Please setup you cosmic_token (e.g. in .rbbt/etc/config) following instructions: $(echo 'email@example.com:mycosmicpassword' | base64)"
     else
       @token
     end
-
   end
 
   def self.get_real_url(url)
@@ -27,13 +27,14 @@ module COSMIC
   end
 
   def self.get_file_url(file)
-    url = File.join("https://cancer.sanger.ac.uk/cosmic/file_download/GRCh37/cosmic/v87/", file)
+    url = File.join("https://cancer.sanger.ac.uk/cosmic/file_download/GRCh37/cosmic/#{VERSION}/", file)
     get_real_url(url)
   end
 
   %w(CosmicMutantExport CosmicStructExport CosmicResistanceMutations CosmicCompleteCNA CosmicCompleteGeneExpression).each do |file|
     COSMIC.claim COSMIC[".source"][file + '.gz'], :proc do |filename|
       real_url = COSMIC.get_file_url(file + '.tsv.gz')
+      Open.mkdir File.dirname(filename)
       CMD.cmd_log("wget -O '#{filename}' '#{real_url}'")
       nil
     end
@@ -68,7 +69,7 @@ module COSMIC
     #stream = CMD.cmd("awk 'BEGIN{FS=\"\\t\"} { if ($#{mutation_id_field} != \"\" && $#{mutation_id_field} != \"Mutation ID\") { sub($#{mutation_id_field}, \"COSM:\" $#{mutation_id_field} \":\" $#{sample_id_field})}; print}'", :in => Open.open(url), :pipe => true)
 
     stream = Open.open(url)
-    parser = TSV::Parser.new stream, :header_hash => "", :key_field => "Mutation ID", :type => :list
+    parser = TSV::Parser.new stream, :header_hash => "", :key_field => "GENOMIC_MUTATION_ID", :type => :list
 
     dumper = TSV::Dumper.new parser.options.merge({:fields => parser.fields + ["Genomic Mutation"]})
     dumper.init

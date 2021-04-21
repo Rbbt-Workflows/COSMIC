@@ -5,7 +5,8 @@ Workflow.require_workflow "COSMIC"
 require 'rbbt/sources/COSMIC'
 
 
-claims = [COSMIC.mutations, COSMIC.mutations_hg18, COSMIC.gene_damage_analysis]
+#claims = [COSMIC.mutations, COSMIC.mutations_hg18, COSMIC.gene_damage_analysis]
+claims = [COSMIC.mutations]
 knowledge_base = %w( sample_mutations mutation_genes mutation_isoforms gene_principal_isoform_mutations )
 
 claims.each{|claim| claim.produce }
