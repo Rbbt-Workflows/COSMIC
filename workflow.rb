@@ -1,7 +1,6 @@
 require 'rbbt'
 require 'rbbt/workflow'
 
-Workflow.require_workflow "Structure"
 module COSMIC
   extend Workflow
 
@@ -21,13 +20,14 @@ module COSMIC
   desc "Find samples where particular protein mutations co-occurr with mutations in given genes"
   task :coocurrence_matrix => :tsv do |mutated_isoforms,genes,soft_match|
 
+    Workflow.require_workflow "Proteomics"
     # Translate genes
     ensg_index = Organism.identifiers(organism).index :target => "Ensembl Gene ID", :persist => true
     ensg2name = Organism.identifiers(organism).index :fields => ["Ensembl Gene ID"], :target => "Associated Gene Name", :persist => true
     genes = ensg_index.chunked_values_at(genes).sort
 
     # Find samples
-    mutation_info = Structure.job(:annotate_mi, nil, :mutated_isoforms => mutated_isoforms, :database => "COSMIC").run
+    mutation_info = Proteomics.job(:annotate_mi, nil, :mutated_isoforms => mutated_isoforms, :database => "COSMIC").run
     samples = mutation_info.column("Sample name").values.flatten.uniq
 
     # Determing which genes are mutated in each sample
