@@ -6,9 +6,21 @@ require 'rbbt/sources/COSMIC'
 
 
 #claims = [COSMIC.mutations, COSMIC.mutations_hg18, COSMIC.gene_damage_analysis]
-claims = [COSMIC.mutations]
-knowledge_base = %w( sample_mutations mutation_genes mutation_isoforms gene_principal_isoform_mutations )
+#claims = [COSMIC.mutations]
+#knowledge_base = %w( sample_mutations mutation_genes mutation_isoforms gene_principal_isoform_mutations )
+#
+#claims.each{|claim| claim.produce }
+#knowledge_base.each{|database| COSMIC.knowledge_base.get_database(database) }
 
-claims.each{|claim| claim.produce }
-knowledge_base.each{|database| COSMIC.knowledge_base.get_database(database) }
+COSMIC.resources.keys.each do |resource|
+  next unless resource.include? 'mutations'
+  next unless resource.include? '38'
+  resource = COSMIC.produce resource.dup
+  Path.setup(resource)
+  if resource.find =~ /\.b?gz$/
+  else
+    CMD.cmd_log('gzip', resource.find)
+  end
+end
 
+iii COSMIC.root.glob_all(".source")
