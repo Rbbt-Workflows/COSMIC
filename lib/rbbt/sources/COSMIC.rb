@@ -244,7 +244,7 @@ module COSMIC
           end
         end
       rescue Exception
-        FileUtils.rm filename if File.exists? filename
+        FileUtils.rm filename if File.exist? filename
         raise $!
       ensure
         file.close

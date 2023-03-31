@@ -73,7 +73,7 @@ end
       mis.collect do |mi|
         protein, sep, change = mi.partition ":"
         next unless protein =~ /ENSP/
-        next unless Appris::PRINCIPAL_ISOFORMS.include? protein
+        next unless Appris.principal_isoform_list.include? protein
         protein_genes[protein]
       end
     end
